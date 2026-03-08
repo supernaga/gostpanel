@@ -1,4 +1,4 @@
-# GOST Panel
+﻿# GOST Panel
 
 GOST Panel is a web-based management panel for GOST v3, with API, UI, node/client lifecycle management, notifications, and audit logs.
 
@@ -7,14 +7,14 @@ GOST Panel is a web-based management panel for GOST v3, with API, UI, node/clien
 ### One-Click Install (Recommended)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<YOUR_GITHUB_USER>/<YOUR_REPO>/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/supernaga/gostpanel/main/scripts/install.sh | bash
 ```
 
 Use custom repo/branch/version:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<YOUR_GITHUB_USER>/<YOUR_REPO>/main/scripts/install.sh | \
-  GOST_PANEL_REPO="<YOUR_GITHUB_USER>/<YOUR_REPO>" \
+curl -fsSL https://raw.githubusercontent.com/supernaga/gostpanel/main/scripts/install.sh | \
+  GOST_PANEL_REPO="supernaga/gostpanel" \
   GOST_PANEL_BRANCH="main" \
   GOST_PANEL_VERSION="latest" \
   bash
@@ -43,7 +43,7 @@ http://<SERVER_IP>:8080
 ### One-Click Uninstall
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<YOUR_GITHUB_USER>/<YOUR_REPO>/main/scripts/uninstall.sh | bash
+curl -fsSL https://raw.githubusercontent.com/supernaga/gostpanel/main/scripts/uninstall.sh | bash
 ```
 
 ## Default Login
