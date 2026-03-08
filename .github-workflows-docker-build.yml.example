@@ -1,0 +1,105 @@
+# Docker 镜像构建 GitHub Actions 工作流示例
+#
+# 此文件展示如何在 GitHub Actions 中构建和发布 Docker 镜像
+# 可以根据需要添加到 .github/workflows/ 目录
+#
+# 文件名建议: docker-build.yml
+
+name: Docker Build
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+
+      - name: Get version and build time
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          else
+            VERSION=$(echo ${{ github.sha }} | cut -c1-7)
+          fi
+          BUILD_TIME=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "BUILD_TIME=${BUILD_TIME}" >> $GITHUB_OUTPUT
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.version.outputs.VERSION }}
+            BUILD_TIME=${{ steps.version.outputs.BUILD_TIME }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+      - name: Image digest
+        run: echo ${{ steps.build.outputs.digest }}
+
+# 使用方法:
+#
+# 1. 将此文件复制到 .github/workflows/docker-build.yml
+#
+# 2. 推送代码后，GitHub Actions 会自动构建镜像并推送到 ghcr.io
+#
+# 3. 拉取镜像:
+#    docker pull ghcr.io/alicenetworks/gost-panel:main
+#    docker pull ghcr.io/alicenetworks/gost-panel:v1.0.0
+#
+# 4. 使用镜像:
+#    编辑 docker-compose.yml，将 build 部分替换为:
+#    image: ghcr.io/alicenetworks/gost-panel:latest
+#
+# 5. 如果是私有仓库，需要先登录:
+#    echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin

@@ -1,0 +1,51 @@
+name: Dev Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build frontend
+        run: cd web && npm ci && npm run build
+
+      - name: Build Panel
+        run: |
+          VERSION=$(git describe --tags --always)
+          BUILD_TIME=$(date -u '+%Y-%m-%d %H:%M:%S')
+          LDFLAGS="-s -w -X 'github.com/AliceNetworks/gost-panel/internal/api.CurrentAgentVersion=${VERSION}' -X 'github.com/AliceNetworks/gost-panel/internal/api.AgentBuildTime=${BUILD_TIME}'"
+          GOOS=linux GOARCH=amd64 go build -ldflags="${LDFLAGS}" -o gost-panel ./cmd/panel/
+
+      - name: Build Agent
+        run: |
+          VERSION=$(git describe --tags --always)
+          BUILD_TIME=$(date -u '+%Y-%m-%d %H:%M:%S')
+          COMMIT="${GITHUB_SHA::8}"
+          LDFLAGS="-s -w -X 'main.AgentVersion=${VERSION}' -X 'main.AgentBuildTime=${BUILD_TIME}' -X 'main.AgentCommit=${COMMIT}'"
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="${LDFLAGS}" -o gost-agent ./cmd/agent/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gost-panel-dev
+          path: |
+            gost-panel
+            gost-agent
+          retention-days: 7
