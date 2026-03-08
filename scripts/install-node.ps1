@@ -74,7 +74,7 @@ if (Test-Path "$InstallDir\gost-agent.exe") {
 }
 
 # Get latest version from GitHub
-$repo = "AliceNetworks/gost-panel"
+$repo = "supernaga/gostpanel"
 try {
     $releaseInfo = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -UseBasicParsing
     $latestVersion = $releaseInfo.tag_name

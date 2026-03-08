@@ -13,7 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// AgentVersion represents the agent version info
+// AgentVersion represents the agent version info.
 type AgentVersion struct {
 	Version   string `json:"version"`
 	BuildTime string `json:"build_time"`
@@ -22,13 +22,42 @@ type AgentVersion struct {
 	Checksum  string `json:"checksum,omitempty"`
 }
 
-// CurrentAgentVersion is the current agent version
+// CurrentAgentVersion is the current agent version.
 // This can be overridden via ldflags at build time:
 // go build -ldflags "-X github.com/AliceNetworks/gost-panel/internal/api.CurrentAgentVersion=1.4.0"
 var CurrentAgentVersion = "dev"
 var AgentBuildTime = "unknown"
 
-// agentGetVersion returns the current agent version
+var supportedAgentTargets = map[string]map[string]bool{
+	"linux": {
+		"amd64":    true,
+		"arm64":    true,
+		"386":      true,
+		"arm":      true,
+		"armv7":    true,
+		"armv6":    true,
+		"armv5":    true,
+		"mips":     true,
+		"mipsle":   true,
+		"mips64":   true,
+		"mips64le": true,
+	},
+	"darwin": {
+		"amd64": true,
+		"arm64": true,
+	},
+	"windows": {
+		"amd64": true,
+		"arm64": true,
+		"386":   true,
+	},
+	"freebsd": {
+		"amd64": true,
+		"arm64": true,
+	},
+}
+
+// agentGetVersion returns the current agent version.
 func (s *Server) agentGetVersion(c *gin.Context) {
 	c.JSON(http.StatusOK, AgentVersion{
 		Version:   CurrentAgentVersion,
@@ -38,13 +67,12 @@ func (s *Server) agentGetVersion(c *gin.Context) {
 	})
 }
 
-// agentCheckUpdate checks if an update is available
+// agentCheckUpdate checks if an update is available.
 func (s *Server) agentCheckUpdate(c *gin.Context) {
 	clientVersion := c.Query("version")
-	clientOS := c.DefaultQuery("os", runtime.GOOS)
-	clientArch := c.DefaultQuery("arch", runtime.GOARCH)
+	clientOS := normalizeAgentOS(c.DefaultQuery("os", runtime.GOOS))
+	clientArch := normalizeAgentArch(c.DefaultQuery("arch", runtime.GOARCH))
 
-	// Check if update is available
 	needsUpdate := compareVersions(clientVersion, CurrentAgentVersion) < 0
 
 	response := gin.H{
@@ -54,10 +82,8 @@ func (s *Server) agentCheckUpdate(c *gin.Context) {
 		"build_time":      AgentBuildTime,
 	}
 
-	if needsUpdate {
-		// Check if binary exists for this OS/arch
-		binaryPath := getAgentBinaryPath(clientOS, clientArch)
-		if _, err := os.Stat(binaryPath); err == nil {
+	if needsUpdate && isSupportedAgentTarget(clientOS, clientArch) {
+		if binaryPath, _, ok := findAgentBinary(clientOS, clientArch); ok {
 			checksum, _ := getFileChecksum(binaryPath)
 			response["download_url"] = fmt.Sprintf("/agent/download/%s/%s", clientOS, clientArch)
 			response["checksum"] = checksum
@@ -67,24 +93,18 @@ func (s *Server) agentCheckUpdate(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// agentDownload serves the agent binary for download
+// agentDownload serves the agent binary for download.
 func (s *Server) agentDownload(c *gin.Context) {
-	osName := c.Param("os")
-	archName := c.Param("arch")
+	osName := normalizeAgentOS(c.Param("os"))
+	archName := normalizeAgentArch(c.Param("arch"))
 
-	// Validate OS and arch
-	validOS := map[string]bool{"linux": true, "darwin": true, "windows": true}
-	validArch := map[string]bool{"amd64": true, "arm64": true, "386": true, "arm": true}
-
-	if !validOS[osName] || !validArch[archName] {
+	if !isSupportedAgentTarget(osName, archName) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid os or arch"})
 		return
 	}
 
-	binaryPath := getAgentBinaryPath(osName, archName)
-
-	// Check if file exists
-	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
+	binaryPath, fileName, ok := findAgentBinary(osName, archName)
+	if !ok {
 		c.JSON(http.StatusNotFound, gin.H{
 			"error":   "agent binary not found",
 			"message": fmt.Sprintf("Binary for %s/%s is not available. Please build it first.", osName, archName),
@@ -92,17 +112,10 @@ func (s *Server) agentDownload(c *gin.Context) {
 		return
 	}
 
-	// Get file info
 	fileInfo, err := os.Stat(binaryPath)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
-	}
-
-	// Set headers
-	fileName := "gost-agent"
-	if osName == "windows" {
-		fileName += ".exe"
 	}
 
 	c.Header("Content-Description", "File Transfer")
@@ -112,7 +125,6 @@ func (s *Server) agentDownload(c *gin.Context) {
 	c.Header("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
 	c.Header("X-Agent-Version", CurrentAgentVersion)
 
-	// Add checksum header
 	if checksum, err := getFileChecksum(binaryPath); err == nil {
 		c.Header("X-Checksum-SHA256", checksum)
 	}
@@ -120,17 +132,120 @@ func (s *Server) agentDownload(c *gin.Context) {
 	c.File(binaryPath)
 }
 
-// getAgentBinaryPath returns the path to the agent binary
-func getAgentBinaryPath(osName, archName string) string {
-	basePath := "/root/gost-panel/dist/agents"
-	fileName := fmt.Sprintf("gost-agent-%s-%s", osName, archName)
-	if osName == "windows" {
-		fileName += ".exe"
+func normalizeAgentOS(osName string) string {
+	switch strings.ToLower(strings.TrimSpace(osName)) {
+	case "macos", "osx":
+		return "darwin"
+	default:
+		return strings.ToLower(strings.TrimSpace(osName))
 	}
-	return filepath.Join(basePath, fileName)
 }
 
-// getFileChecksum calculates SHA256 checksum of a file
+func normalizeAgentArch(archName string) string {
+	switch strings.ToLower(strings.TrimSpace(archName)) {
+	case "x86_64", "x64":
+		return "amd64"
+	case "aarch64":
+		return "arm64"
+	case "i386", "i686", "x86":
+		return "386"
+	case "armv7l":
+		return "armv7"
+	case "armv6l":
+		return "armv6"
+	default:
+		return strings.ToLower(strings.TrimSpace(archName))
+	}
+}
+
+func isSupportedAgentTarget(osName, archName string) bool {
+	arches, ok := supportedAgentTargets[osName]
+	if !ok {
+		return false
+	}
+	return arches[archName]
+}
+
+func findAgentBinary(osName, archName string) (string, string, bool) {
+	fileCandidates := agentFileCandidates(osName, archName)
+
+	for _, dir := range agentSearchDirs() {
+		for _, fileName := range fileCandidates {
+			path := filepath.Join(dir, fileName)
+			if info, err := os.Stat(path); err == nil && !info.IsDir() {
+				return path, fileName, true
+			}
+		}
+	}
+
+	return "", "", false
+}
+
+func agentFileCandidates(osName, archName string) []string {
+	buildName := func(arch string) string {
+		name := fmt.Sprintf("gost-agent-%s-%s", osName, arch)
+		if osName == "windows" {
+			name += ".exe"
+		}
+		return name
+	}
+
+	candidates := []string{buildName(archName)}
+
+	if osName == "linux" {
+		switch archName {
+		case "arm":
+			candidates = append(candidates, buildName("armv7"), buildName("armv6"), buildName("armv5"))
+		case "armv7", "armv6", "armv5":
+			candidates = append(candidates, buildName("arm"))
+		}
+	}
+
+	return uniqueStrings(candidates)
+}
+
+func agentSearchDirs() []string {
+	dirs := make([]string, 0, 8)
+
+	if custom := strings.TrimSpace(os.Getenv("AGENT_DIST_DIR")); custom != "" {
+		dirs = append(dirs, custom)
+	}
+
+	if execPath, err := os.Executable(); err == nil {
+		execDir := filepath.Dir(execPath)
+		dirs = append(dirs, filepath.Join(execDir, "dist", "agents"))
+		dirs = append(dirs, filepath.Join(execDir, "agents"))
+	}
+
+	if wd, err := os.Getwd(); err == nil {
+		dirs = append(dirs, filepath.Join(wd, "dist", "agents"))
+	}
+
+	dirs = append(dirs,
+		"/opt/gost-panel/dist/agents",
+		"/opt/gost-panel/agents",
+	)
+
+	return uniqueStrings(dirs)
+}
+
+func uniqueStrings(values []string) []string {
+	seen := make(map[string]struct{}, len(values))
+	result := make([]string, 0, len(values))
+
+	for _, value := range values {
+		value = filepath.Clean(value)
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+
+	return result
+}
+
+// getFileChecksum calculates SHA256 checksum of a file.
 func getFileChecksum(path string) (string, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -146,10 +261,9 @@ func getFileChecksum(path string) (string, error) {
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 
-// compareVersions compares two semantic versions
-// Returns: -1 if v1 < v2, 0 if v1 == v2, 1 if v1 > v2
+// compareVersions compares two semantic versions.
+// Returns: -1 if v1 < v2, 0 if v1 == v2, 1 if v1 > v2.
 func compareVersions(v1, v2 string) int {
-	// Remove 'v' prefix if present
 	v1 = strings.TrimPrefix(v1, "v")
 	v2 = strings.TrimPrefix(v2, "v")
 
@@ -181,14 +295,12 @@ func compareVersions(v1, v2 string) int {
 	return 0
 }
 
-// clientHeartbeat handles client heartbeat requests
+// clientHeartbeat handles client heartbeat requests.
 func (s *Server) clientHeartbeat(c *gin.Context) {
 	token := c.Param("token")
 
-	// Update client status
 	err := s.svc.UpdateClientHeartbeat(token)
 	if err != nil {
-		// Client deleted or token invalid - signal remote to uninstall
 		c.JSON(http.StatusGone, gin.H{"error": "client not found", "uninstall": true})
 		return
 	}

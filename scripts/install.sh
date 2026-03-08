@@ -3,11 +3,11 @@
 set -euo pipefail
 
 # You can override these when running the script:
-# GOST_PANEL_REPO=yourname/yourrepo
+# GOST_PANEL_REPO=supernaga/gostpanel
 # GOST_PANEL_BRANCH=main
 # GOST_PANEL_VERSION=v1.2.3 (or "latest")
 # GOST_PANEL_INSTALL_DIR=/opt/gost-panel
-REPO="${GOST_PANEL_REPO:-AliceNetworks/gost-panel}"
+REPO="${GOST_PANEL_REPO:-supernaga/gostpanel}"
 BRANCH="${GOST_PANEL_BRANCH:-main}"
 VERSION="${GOST_PANEL_VERSION:-latest}"
 INSTALL_DIR="${GOST_PANEL_INSTALL_DIR:-/opt/gost-panel}"

@@ -13,7 +13,7 @@ const DefaultJWTSecret = "gost-panel-secret-change-me"
 
 // 默认配置常量
 const (
-	DefaultGitHubRawURL = "https://raw.githubusercontent.com/AliceNetworks/gost-panel/main/scripts"
+	DefaultGitHubRawURL = "https://raw.githubusercontent.com/supernaga/gostpanel/main/scripts"
 	DefaultGOSTVersion  = "3.0.0-rc10"
 )
 
