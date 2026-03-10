@@ -30,6 +30,22 @@ require_root() {
   fi
 }
 
+check_disk_space() {
+  local required_mb=2048
+  local available_mb
+  available_mb=$(df /tmp | tail -1 | awk '{print int($4/1024)}')
+
+  if [ "${available_mb}" -lt "${required_mb}" ]; then
+    log_err "Insufficient disk space. Required: ${required_mb}MB, Available: ${available_mb}MB"
+    log_info "Please free up disk space and try again:"
+    log_info "  apt-get clean && apt-get autoremove -y"
+    log_info "  rm -rf /tmp/* /var/tmp/*"
+    exit 1
+  fi
+
+  log_info "Disk space check passed (${available_mb}MB available)"
+}
+
 detect_arch() {
   local raw
   raw="$(uname -m)"
@@ -111,7 +127,8 @@ download_release_binary() {
 }
 
 build_from_source() {
-  log_warn "Falling back to source build"
+  log_warn "Falling back to source build (this may take 5-10 minutes)"
+  check_disk_space
   install_build_deps
 
   local ref_path
@@ -133,13 +150,13 @@ build_from_source() {
   curl -fsSL -o "${src_tar}" "${src_url}"
   tar -xzf "${src_tar}" -C "${src_dir}" --strip-components=1
 
-  log_info "Building frontend..."
+  log_info "Building frontend (this may take a few minutes)..."
   (
     cd "${src_dir}/web"
     if [ -f "package-lock.json" ]; then
-      npm ci
+      npm ci --quiet
     else
-      npm install
+      npm install --quiet
     fi
     NODE_OPTIONS="--max-old-space-size=1024" npm run build
   )
@@ -147,7 +164,7 @@ build_from_source() {
   log_info "Building panel binary..."
   (
     cd "${src_dir}"
-    GOMAXPROCS=1 go build -o "${INSTALL_DIR}/gost-panel" ./cmd/panel
+    GOMAXPROCS=1 go build -ldflags="-s -w" -o "${INSTALL_DIR}/gost-panel" ./cmd/panel
   )
 
   chmod +x "${INSTALL_DIR}/gost-panel"
@@ -193,25 +210,31 @@ print_summary() {
   local ip
   ip="$(hostname -I | awk '{print $1}')"
   echo ""
-  log_info "Installation complete"
-  echo "Panel URL: http://${ip}:8080"
-  echo "Service: ${SERVICE_NAME}"
-  echo "Env: ${ENV_FILE}"
+  echo -e "${GREEN}========================================${NC}"
+  echo -e "${GREEN}  GOST Panel Installation Complete!${NC}"
+  echo -e "${GREEN}========================================${NC}"
   echo ""
-  echo "Commands:"
-  echo "  systemctl status ${SERVICE_NAME}"
-  echo "  systemctl restart ${SERVICE_NAME}"
-  echo "  journalctl -u ${SERVICE_NAME} -f"
+  echo -e "📍 Panel URL: ${GREEN}http://${ip}:8080${NC}"
+  echo -e "🔧 Service: ${SERVICE_NAME}"
+  echo -e "⚙️  Config: ${ENV_FILE}"
   echo ""
+  echo -e "${YELLOW}📝 Default Login:${NC}"
+  echo -e "   Username: ${GREEN}admin${NC}"
   if [ -n "${INITIAL_ADMIN_PASSWORD:-}" ]; then
-    echo "Initial login: admin / ${INITIAL_ADMIN_PASSWORD}"
+    echo -e "   Password: ${GREEN}${INITIAL_ADMIN_PASSWORD}${NC}"
   else
-    echo "Initial admin password is printed in service logs:"
-    echo "  journalctl -u ${SERVICE_NAME} -n 50 --no-pager"
+    echo -e "   Password: ${YELLOW}Check service logs:${NC}"
+    echo -e "   ${GREEN}journalctl -u ${SERVICE_NAME} -n 80 --no-pager | grep -i password${NC}"
   fi
   echo ""
-  echo "Upgrade:"
-  echo "  curl -fsSL https://raw.githubusercontent.com/${REPO}/${BRANCH}/scripts/install.sh | bash"
+  echo -e "${YELLOW}🔍 Service Commands:${NC}"
+  echo "   systemctl status ${SERVICE_NAME}"
+  echo "   systemctl restart ${SERVICE_NAME}"
+  echo "   journalctl -u ${SERVICE_NAME} -f"
+  echo ""
+  echo -e "${YELLOW}🔄 Upgrade:${NC}"
+  echo "   curl -fsSL https://raw.githubusercontent.com/${REPO}/${BRANCH}/scripts/install.sh | bash"
+  echo ""
 }
 
 main() {
