@@ -27,7 +27,7 @@ COPY --from=frontend /app/internal/api/dist /app/internal/api/dist
 ARG VERSION=dev
 ARG BUILD_TIME=unknown
 RUN CGO_ENABLED=1 GOOS=linux go build \
-    -ldflags="-s -w -X 'github.com/AliceNetworks/gost-panel/internal/api.CurrentAgentVersion=${VERSION}' -X 'github.com/AliceNetworks/gost-panel/internal/api.AgentBuildTime=${BUILD_TIME}'" \
+    -ldflags="-s -w -X 'github.com/supernaga/gost-panel/internal/api.CurrentAgentVersion=${VERSION}' -X 'github.com/supernaga/gost-panel/internal/api.AgentBuildTime=${BUILD_TIME}'" \
     -o gost-panel ./cmd/panel/
 
 # 运行镜像

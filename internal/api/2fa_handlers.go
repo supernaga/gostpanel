@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/AliceNetworks/gost-panel/internal/model"
+	"github.com/supernaga/gost-panel/internal/model"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"

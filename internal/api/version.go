@@ -24,7 +24,7 @@ type AgentVersion struct {
 
 // CurrentAgentVersion is the current agent version.
 // This can be overridden via ldflags at build time:
-// go build -ldflags "-X github.com/AliceNetworks/gost-panel/internal/api.CurrentAgentVersion=1.4.0"
+// go build -ldflags "-X github.com/supernaga/gost-panel/internal/api.CurrentAgentVersion=1.4.0"
 var CurrentAgentVersion = "dev"
 var AgentBuildTime = "unknown"
 

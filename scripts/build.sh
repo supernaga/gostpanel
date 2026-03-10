@@ -35,8 +35,8 @@ echo -e "Commit: ${YELLOW}${COMMIT}${NC}"
 echo ""
 
 # ldflags 定义
-LDFLAGS="-X 'github.com/AliceNetworks/gost-panel/internal/api.CurrentAgentVersion=${VERSION}'"
-LDFLAGS="${LDFLAGS} -X 'github.com/AliceNetworks/gost-panel/internal/api.AgentBuildTime=${BUILD_TIME}'"
+LDFLAGS="-X 'github.com/supernaga/gost-panel/internal/api.CurrentAgentVersion=${VERSION}'"
+LDFLAGS="${LDFLAGS} -X 'github.com/supernaga/gost-panel/internal/api.AgentBuildTime=${BUILD_TIME}'"
 
 # 项目根目录
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

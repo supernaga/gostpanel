@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/AliceNetworks/gost-panel/internal/model"
+	"github.com/supernaga/gost-panel/internal/model"
 )
 
 // ConfigGenerator GOST 配置生成器

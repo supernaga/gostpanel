@@ -66,8 +66,8 @@ jobs:
           BUILD_TIME="${{ steps.version.outputs.BUILD_TIME }}"
 
           LDFLAGS="-s -w"
-          LDFLAGS="${LDFLAGS} -X 'github.com/AliceNetworks/gost-panel/internal/api.CurrentAgentVersion=${VERSION}'"
-          LDFLAGS="${LDFLAGS} -X 'github.com/AliceNetworks/gost-panel/internal/api.AgentBuildTime=${BUILD_TIME}'"
+          LDFLAGS="${LDFLAGS} -X 'github.com/supernaga/gost-panel/internal/api.CurrentAgentVersion=${VERSION}'"
+          LDFLAGS="${LDFLAGS} -X 'github.com/supernaga/gost-panel/internal/api.AgentBuildTime=${BUILD_TIME}'"
 
           mkdir -p dist/panel
 

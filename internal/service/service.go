@@ -10,10 +10,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/AliceNetworks/gost-panel/internal/config"
-	"github.com/AliceNetworks/gost-panel/internal/gost"
-	"github.com/AliceNetworks/gost-panel/internal/model"
-	"github.com/AliceNetworks/gost-panel/internal/notify"
+	"github.com/supernaga/gost-panel/internal/config"
+	"github.com/supernaga/gost-panel/internal/gost"
+	"github.com/supernaga/gost-panel/internal/model"
+	"github.com/supernaga/gost-panel/internal/notify"
 	"gorm.io/gorm"
 )
 

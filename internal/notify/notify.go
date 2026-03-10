@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AliceNetworks/gost-panel/internal/model"
+	"github.com/supernaga/gost-panel/internal/model"
 )
 
 // Notifier 通知发送接口

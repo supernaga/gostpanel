@@ -31,7 +31,7 @@ jobs:
         run: |
           VERSION=$(git describe --tags --always)
           BUILD_TIME=$(date -u '+%Y-%m-%d %H:%M:%S')
-          LDFLAGS="-s -w -X 'github.com/AliceNetworks/gost-panel/internal/api.CurrentAgentVersion=${VERSION}' -X 'github.com/AliceNetworks/gost-panel/internal/api.AgentBuildTime=${BUILD_TIME}'"
+          LDFLAGS="-s -w -X 'github.com/supernaga/gost-panel/internal/api.CurrentAgentVersion=${VERSION}' -X 'github.com/supernaga/gost-panel/internal/api.AgentBuildTime=${BUILD_TIME}'"
           GOOS=linux GOARCH=amd64 go build -ldflags="${LDFLAGS}" -o gost-panel ./cmd/panel/
 
       - name: Build Agent

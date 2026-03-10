@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/AliceNetworks/gost-panel/internal/gost"
-	"github.com/AliceNetworks/gost-panel/internal/model"
+	"github.com/supernaga/gost-panel/internal/gost"
+	"github.com/supernaga/gost-panel/internal/model"
 	"gorm.io/gorm"
 )
 

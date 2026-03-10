@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AliceNetworks/gost-panel/internal/model"
+	"github.com/supernaga/gost-panel/internal/model"
 	"gorm.io/gorm"
 )
 

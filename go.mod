@@ -1,4 +1,4 @@
-module github.com/AliceNetworks/gost-panel
+module github.com/supernaga/gost-panel
 
 go 1.23.0
 

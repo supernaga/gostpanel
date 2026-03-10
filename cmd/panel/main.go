@@ -10,10 +10,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/AliceNetworks/gost-panel/internal/api"
-	"github.com/AliceNetworks/gost-panel/internal/config"
-	"github.com/AliceNetworks/gost-panel/internal/model"
-	"github.com/AliceNetworks/gost-panel/internal/service"
+	"github.com/supernaga/gost-panel/internal/api"
+	"github.com/supernaga/gost-panel/internal/config"
+	"github.com/supernaga/gost-panel/internal/model"
+	"github.com/supernaga/gost-panel/internal/service"
 )
 
 var (

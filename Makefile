@@ -43,3 +43,46 @@ docker-build:
 # Docker 运行
 docker-run:
 	docker-compose up -d
+
+# 代码质量检查
+lint:
+	golangci-lint run
+
+# 自动修复代码问题
+lint-fix:
+	golangci-lint run --fix
+
+# 运行测试
+test:
+	go test -v -race -coverprofile=coverage.out ./...
+
+# 查看测试覆盖率
+coverage:
+	go tool cover -html=coverage.out
+
+# 格式化代码
+fmt:
+	gofmt -s -w .
+	goimports -w .
+
+# 安全检查
+security:
+	gosec ./...
+
+# 完整检查（格式化 + lint + 测试）
+check: fmt lint test
+
+# 生成 API 文档（如果使用 swag）
+docs:
+	swag init -g cmd/panel/main.go -o docs
+
+# 查看项目统计
+stats:
+	@echo "=== 代码统计 ==="
+	@find . -name "*.go" -not -path "./vendor/*" | xargs wc -l | tail -1
+	@echo ""
+	@echo "=== 文件数量 ==="
+	@find . -name "*.go" -not -path "./vendor/*" | wc -l
+	@echo ""
+	@echo "=== 最大文件 ==="
+	@find . -name "*.go" -not -path "./vendor/*" -exec wc -l {} + | sort -rn | head -5
