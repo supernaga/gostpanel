@@ -2,6 +2,7 @@
 package api
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"net/http"
 	"time"
@@ -136,10 +137,12 @@ func (s *Server) agentHeartbeat(c *gin.Context) {
 		return
 	}
 
-	// Token 无效，通知 Agent 卸载自己
+	// Token 无效，通知 Agent 卸载自己（附带签名验证）
+	uninstallSig := fmt.Sprintf("%x", sha256.Sum256([]byte("uninstall:"+req.Token)))
 	c.JSON(http.StatusUnauthorized, gin.H{
-		"error":     "invalid token",
-		"uninstall": true,
+		"error":         "invalid token",
+		"uninstall":     true,
+		"uninstall_sig": uninstallSig,
 	})
 }
 

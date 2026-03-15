@@ -523,6 +523,20 @@ func InitDB(dbPath string) (*gorm.DB, error) {
 		return nil, err
 	}
 
+	// SQLite 性能优化
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, err
+	}
+	sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetMaxIdleConns(1)
+	sqlDB.SetConnMaxLifetime(0)
+
+	db.Exec("PRAGMA journal_mode=WAL")
+	db.Exec("PRAGMA busy_timeout=5000")
+	db.Exec("PRAGMA synchronous=NORMAL")
+	db.Exec("PRAGMA foreign_keys=ON")
+
 	// 自动迁移
 	if err := db.AutoMigrate(&Node{}, &Client{}, &Service{}, &User{}, &UserSession{}, &Plan{}, &PlanResource{}, &TrafficHistory{}, &NotifyChannel{}, &AlertRule{}, &AlertLog{}, &PortForward{}, &NodeGroup{}, &NodeGroupMember{}, &DNSConfig{}, &OperationLog{}, &ProxyChain{}, &ProxyChainHop{}, &Tunnel{}, &SiteConfig{}, &Tag{}, &NodeTag{}, &Bypass{}, &Admission{}, &HostMapping{}, &Ingress{}, &Recorder{}, &Router{}, &SD{}, &ConfigVersion{}, &HealthCheckLog{}); err != nil {
 		return nil, err
@@ -646,23 +660,19 @@ func isSpecialChar(c rune) bool {
 	return false
 }
 
+// commonPasswordSet 常见弱密码集合，O(1) 查找
+var commonPasswordSet = map[string]bool{
+	"password": true, "12345678": true, "123456789": true, "1234567890": true,
+	"qwerty123": true, "abc12345": true, "password1": true, "password123": true,
+	"admin123": true, "admin1234": true, "letmein123": true, "welcome1": true,
+	"monkey123": true, "dragon123": true, "master123": true, "qwertyui": true,
+	"iloveyou1": true, "sunshine1": true, "princess1": true, "football1": true,
+	"baseball1": true, "trustno1": true, "batman123": true, "shadow123": true,
+}
+
 // isCommonPassword 检查是否为常见弱密码
 func isCommonPassword(password string) bool {
-	commonPasswords := []string{
-		"password", "12345678", "123456789", "1234567890",
-		"qwerty123", "abc12345", "password1", "password123",
-		"admin123", "admin1234", "letmein123", "welcome1",
-		"monkey123", "dragon123", "master123", "qwertyui",
-		"iloveyou1", "sunshine1", "princess1", "football1",
-		"baseball1", "trustno1", "batman123", "shadow123",
-	}
-	lowerPass := strings.ToLower(password)
-	for _, cp := range commonPasswords {
-		if lowerPass == cp {
-			return true
-		}
-	}
-	return false
+	return commonPasswordSet[strings.ToLower(password)]
 }
 
 // 密码验证错误

@@ -111,6 +111,7 @@ type WSHub struct {
 	broadcast  chan []byte
 	register   chan *WSClient
 	unregister chan *WSClient
+	stopCh     chan struct{}
 	mu         sync.RWMutex
 }
 
@@ -121,13 +122,23 @@ func NewWSHub() *WSHub {
 		broadcast:  make(chan []byte, 256),
 		register:   make(chan *WSClient),
 		unregister: make(chan *WSClient),
+		stopCh:     make(chan struct{}),
 	}
+}
+
+// Stop gracefully shuts down the hub
+func (h *WSHub) Stop() {
+	close(h.stopCh)
 }
 
 // Run starts the hub's main loop
 func (h *WSHub) Run() {
 	for {
 		select {
+		case <-h.stopCh:
+			log.Println("WebSocket hub stopped")
+			return
+
 		case client := <-h.register:
 			h.mu.Lock()
 			h.clients[client] = true

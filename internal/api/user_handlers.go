@@ -102,11 +102,24 @@ func (s *Server) updateUser(c *gin.Context) {
 		return
 	}
 
-	// 防止篡改敏感字段
-	delete(updates, "id")
-	delete(updates, "created_at")
+	// 使用白名单过滤允许更新的字段
+	allowedFields := map[string]bool{
+		"username": true, "email": true, "role": true,
+		"enabled": true, "email_verified": true,
+	}
+	filtered := make(map[string]interface{})
+	for k, v := range updates {
+		if allowedFields[k] {
+			filtered[k] = v
+		}
+	}
 
-	if err := s.svc.UpdateUser(uint(id), updates); err != nil {
+	if len(filtered) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no valid fields to update"})
+		return
+	}
+
+	if err := s.svc.UpdateUser(uint(id), filtered); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -143,27 +156,19 @@ func (s *Server) changePassword(c *gin.Context) {
 		return
 	}
 
-	// 从 JWT 获取当前用户 ID
-	userIDRaw, exists := c.Get("user_id")
-	if !exists {
+	userID, _ := getUserInfo(c)
+	if userID == 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 
-	userIDFloat, ok := userIDRaw.(float64)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user id"})
-		return
-	}
-
-	id := uint(userIDFloat)
-	if err := s.svc.ChangePassword(id, req.OldPassword, req.NewPassword); err != nil {
+	if err := s.svc.ChangePassword(userID, req.OldPassword, req.NewPassword); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	if currentJTI, ok := c.Get("jti"); ok {
 		if jti, ok := currentJTI.(string); ok && jti != "" {
-			_, _ = s.svc.DeleteOtherSessions(id, jti)
+			_, _ = s.svc.DeleteOtherSessions(userID, jti)
 		}
 	}
 
@@ -174,19 +179,13 @@ func (s *Server) changePassword(c *gin.Context) {
 
 // getProfile 获取当前用户个人资料
 func (s *Server) getProfile(c *gin.Context) {
-	userIDRaw, exists := c.Get("user_id")
-	if !exists {
+	userID, _ := getUserInfo(c)
+	if userID == 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 
-	userIDFloat, ok := userIDRaw.(float64)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user id"})
-		return
-	}
-
-	user, err := s.svc.GetUser(uint(userIDFloat))
+	user, err := s.svc.GetUser(userID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
@@ -202,15 +201,9 @@ type UpdateProfileRequest struct {
 
 // updateProfile 更新当前用户个人资料
 func (s *Server) updateProfile(c *gin.Context) {
-	userIDRaw, exists := c.Get("user_id")
-	if !exists {
+	userID, _ := getUserInfo(c)
+	if userID == 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-		return
-	}
-
-	userIDFloat, ok := userIDRaw.(float64)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user id"})
 		return
 	}
 
@@ -232,13 +225,13 @@ func (s *Server) updateProfile(c *gin.Context) {
 		return
 	}
 
-	if err := s.svc.UpdateUser(uint(userIDFloat), updates); err != nil {
+	if err := s.svc.UpdateUser(userID, updates); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	// 返回更新后的用户信息
-	user, _ := s.svc.GetUser(uint(userIDFloat))
+	user, _ := s.svc.GetUser(userID)
 	c.JSON(http.StatusOK, user)
 }
 
@@ -246,18 +239,11 @@ func (s *Server) updateProfile(c *gin.Context) {
 
 // enable2FA 开始启用 2FA
 func (s *Server) enable2FA(c *gin.Context) {
-	userIDRaw, exists := c.Get("user_id")
-	if !exists {
+	userID, _ := getUserInfo(c)
+	if userID == 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-
-	userIDFloat, ok := userIDRaw.(float64)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user id"})
-		return
-	}
-	userID := uint(userIDFloat)
 
 	var user model.User
 	if err := s.svc.DB().First(&user, userID).Error; err != nil {
@@ -287,18 +273,11 @@ func (s *Server) enable2FA(c *gin.Context) {
 
 // verify2FA 验证并正式启用 2FA
 func (s *Server) verify2FA(c *gin.Context) {
-	userIDRaw, exists := c.Get("user_id")
-	if !exists {
+	userID, _ := getUserInfo(c)
+	if userID == 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-
-	userIDFloat, ok := userIDRaw.(float64)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user id"})
-		return
-	}
-	userID := uint(userIDFloat)
 
 	var req struct {
 		Code string `json:"code" binding:"required"`
@@ -343,18 +322,11 @@ func (s *Server) verify2FA(c *gin.Context) {
 
 // disable2FA 禁用 2FA
 func (s *Server) disable2FA(c *gin.Context) {
-	userIDRaw, exists := c.Get("user_id")
-	if !exists {
+	userID, _ := getUserInfo(c)
+	if userID == 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-
-	userIDFloat, ok := userIDRaw.(float64)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user id"})
-		return
-	}
-	userID := uint(userIDFloat)
 
 	var req struct {
 		Password string `json:"password" binding:"required"`

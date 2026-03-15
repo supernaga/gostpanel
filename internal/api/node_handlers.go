@@ -184,20 +184,40 @@ func (s *Server) updateNode(c *gin.Context) {
 		return
 	}
 
-	// 不允许更新的字段
-	delete(updates, "id")
-	delete(updates, "agent_token")
-	delete(updates, "created_at")
-	delete(updates, "owner_id")
-
-	// 密码字段为空时不更新，防止编辑时误覆盖已有密码
-	for _, key := range []string{"api_pass", "proxy_pass", "ss_password"} {
-		if v, ok := updates[key]; ok && v == "" {
-			delete(updates, key)
+	// 使用白名单过滤允许更新的字段
+	allowedFields := map[string]bool{
+		"name": true, "host": true, "port": true, "api_port": true,
+		"api_user": true, "api_pass": true, "proxy_user": true, "proxy_pass": true,
+		"traffic_quota": true, "quota_reset_day": true,
+		"protocol": true, "transport": true, "transport_opts": true,
+		"ss_method": true, "ss_password": true,
+		"tls_enabled": true, "tls_cert_file": true, "tls_key_file": true,
+		"tls_sni": true, "tls_alpn": true,
+		"ws_path": true, "ws_host": true,
+		"speed_limit": true, "conn_rate_limit": true, "dns_server": true,
+		"proxy_protocol": true, "probe_resist": true, "probe_resist_value": true,
+		"plugin_config": true,
+	}
+	filtered := make(map[string]interface{})
+	for k, v := range updates {
+		if allowedFields[k] {
+			filtered[k] = v
 		}
 	}
 
-	if err := s.svc.UpdateNode(id, updates); err != nil {
+	// 密码字段为空时不更新，防止编辑时误覆盖已有密码
+	for _, key := range []string{"api_pass", "proxy_pass", "ss_password"} {
+		if v, ok := filtered[key]; ok && v == "" {
+			delete(filtered, key)
+		}
+	}
+
+	if len(filtered) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no valid fields to update"})
+		return
+	}
+
+	if err := s.svc.UpdateNode(id, filtered); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

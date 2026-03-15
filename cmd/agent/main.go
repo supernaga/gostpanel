@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -84,6 +85,11 @@ func NewAgent(panelURL, token, mode, configPath, gostPath, gostAPI, gostUser, go
 		lastServiceStats: make(map[string]ServiceStats),
 		client: &http.Client{
 			Timeout: 30 * time.Second,
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					MinVersion: tls.VersionTLS12,
+				},
+			},
 		},
 	}
 }
@@ -180,7 +186,7 @@ func (a *Agent) downloadConfig() error {
 		return err
 	}
 
-	return os.WriteFile(a.configPath, configData, 0644)
+	return os.WriteFile(a.configPath, configData, 0600)
 }
 
 // findGost 自动检测 GOST 二进制路径，找不到则自动下载
@@ -493,9 +499,20 @@ func (a *Agent) sendHeartbeat() error {
 		return fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	// 检查是否需要卸载
+	// 检查是否需要卸载（需要签名验证）
 	if uninstall, ok := result["uninstall"].(bool); ok && uninstall {
-		log.Println("Received uninstall command from panel, uninstalling...")
+		// 验证卸载签名：使用 agent token 的 HMAC-SHA256
+		uninstallSig, _ := result["uninstall_sig"].(string)
+		if uninstallSig == "" {
+			log.Println("WARNING: Received uninstall command without signature, ignoring")
+			return nil
+		}
+		expectedSig := fmt.Sprintf("%x", sha256.Sum256([]byte("uninstall:"+a.token)))
+		if uninstallSig != expectedSig {
+			log.Println("WARNING: Received uninstall command with invalid signature, ignoring")
+			return nil
+		}
+		log.Println("Received verified uninstall command from panel, uninstalling...")
 		go a.uninstall()
 		return nil
 	}

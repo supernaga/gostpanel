@@ -1161,6 +1161,12 @@ func (s *Service) RecordTrafficHistory() error {
 	return nil
 }
 
+// CleanupOldTrafficHistory 清理指定天数之前的流量历史记录
+func (s *Service) CleanupOldTrafficHistory(days int) error {
+	cutoff := time.Now().AddDate(0, 0, -days)
+	return s.db.Where("recorded_at < ?", cutoff).Delete(&model.TrafficHistory{}).Error
+}
+
 // TrafficPoint 流量数据点
 type TrafficPoint struct {
 	Time        time.Time `json:"time"`

@@ -63,8 +63,8 @@ func (p *program) run() {
 
 	svcInst := service.NewService(db, cfg)
 
-	go startTrafficRecorder(svcInst)
-	go startSessionCleaner(svcInst)
+	go startTrafficRecorder(ctx, svcInst)
+	go startSessionCleaner(ctx, svcInst)
 
 	server := api.NewServer(svcInst, cfg)
 

@@ -72,15 +72,6 @@ func main() {
 	svc := service.NewService(db, cfg)
 	defer svc.Close()
 
-	// 启动流量历史记录定时任务
-	go startTrafficRecorder(svc)
-
-	// 启动会话清理定时任务
-	go startSessionCleaner(svc)
-
-	// 启动 API 服务
-	server := api.NewServer(svc, cfg)
-
 	// 使用带信号处理的优雅关闭
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -92,6 +83,15 @@ func main() {
 		log.Println("Shutting down...")
 		cancel()
 	}()
+
+	// 启动流量历史记录定时任务
+	go startTrafficRecorder(ctx, svc)
+
+	// 启动会话清理定时任务
+	go startSessionCleaner(ctx, svc)
+
+	// 启动 API 服务
+	server := api.NewServer(svc, cfg)
 
 	log.Printf("GOST Panel starting on %s", cfg.ListenAddr)
 	if err := server.RunWithContext(ctx); err != nil {
@@ -137,7 +137,7 @@ func printUsage() {
 }
 
 // startTrafficRecorder 启动流量记录定时任务
-func startTrafficRecorder(svc *service.Service) {
+func startTrafficRecorder(ctx context.Context, svc *service.Service) {
 	// 每分钟记录一次流量数据
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
@@ -147,22 +147,42 @@ func startTrafficRecorder(svc *service.Service) {
 		log.Printf("Failed to record initial traffic history: %v", err)
 	}
 
-	for range ticker.C {
-		if err := svc.RecordTrafficHistory(); err != nil {
-			log.Printf("Failed to record traffic history: %v", err)
+	counter := 0
+	for {
+		select {
+		case <-ctx.Done():
+			log.Println("Traffic recorder stopped")
+			return
+		case <-ticker.C:
+			if err := svc.RecordTrafficHistory(); err != nil {
+				log.Printf("Failed to record traffic history: %v", err)
+			}
+			counter++
+			// 每小时清理一次过期流量历史（保留30天）
+			if counter%60 == 0 {
+				if err := svc.CleanupOldTrafficHistory(30); err != nil {
+					log.Printf("Failed to cleanup old traffic history: %v", err)
+				}
+			}
 		}
 	}
 }
 
 // startSessionCleaner 启动会话清理定时任务
-func startSessionCleaner(svc *service.Service) {
+func startSessionCleaner(ctx context.Context, svc *service.Service) {
 	// 每小时清理一次过期会话
 	ticker := time.NewTicker(1 * time.Hour)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		if err := svc.CleanupExpiredSessions(); err != nil {
-			log.Printf("Failed to cleanup expired sessions: %v", err)
+	for {
+		select {
+		case <-ctx.Done():
+			log.Println("Session cleaner stopped")
+			return
+		case <-ticker.C:
+			if err := svc.CleanupExpiredSessions(); err != nil {
+				log.Printf("Failed to cleanup expired sessions: %v", err)
+			}
 		}
 	}
 }
