@@ -1656,7 +1656,7 @@ func (s *Service) InitDefaultSiteConfigs() {
 		"site_name":        "GOST Panel",
 		"site_description": "GOST 代理管理面板",
 		"favicon_url":      "/vite.svg",
-		"logo_url":         "",
+		"logo_url":         "/gpl-logo.svg",
 		"footer_text":      "",
 		"custom_css":       "",
 	}

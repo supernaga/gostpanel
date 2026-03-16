@@ -262,7 +262,7 @@ const savingProfile = ref(false)
 const siteConfig = ref({
   site_name: 'GOST Panel',
   favicon_url: '/vite.svg',
-  logo_url: '',
+  logo_url: '/gpl-logo.svg',
   footer_text: '',
 })
 const passwordForm = ref({

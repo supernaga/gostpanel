@@ -97,7 +97,7 @@ const form = ref({
 const siteConfig = ref({
   site_name: 'GOST Panel',
   site_description: '代理服务管理平台',
-  logo_url: '',
+  logo_url: '/gpl-logo.svg',
   favicon_url: '',
   footer_text: '',
 })
