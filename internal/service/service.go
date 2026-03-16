@@ -1155,8 +1155,7 @@ func (s *Service) RecordTrafficHistory() error {
 	}
 	s.db.Create(totalHistory)
 
-	// 清理超过 24 小时的数据
-	s.db.Where("recorded_at < ?", now.Add(-24*time.Hour)).Delete(&model.TrafficHistory{})
+	// 清理逻辑由定时任务负责（默认保留 30 天）
 
 	return nil
 }
