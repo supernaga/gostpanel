@@ -19,8 +19,15 @@
       @expand="collapsed = false"
     >
       <div class="logo">
+        <img
+          v-if="siteConfig.logo_url"
+          :src="siteConfig.logo_url"
+          class="logo-img"
+          :class="{ collapsed }"
+          alt="Logo"
+        />
         <span v-if="!collapsed">{{ siteConfig.site_name || 'GOST Panel' }}</span>
-        <span v-else>{{ (siteConfig.site_name || 'G')[0] }}</span>
+        <span v-else-if="!siteConfig.logo_url">{{ (siteConfig.site_name || 'G')[0] }}</span>
       </div>
       <n-menu
         :collapsed="collapsed"
@@ -607,6 +614,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 10px;
   font-size: 18px;
   font-weight: 700;
   background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
@@ -614,6 +622,20 @@ onUnmounted(() => {
   -webkit-text-fill-color: transparent;
   background-clip: text;
   letter-spacing: -0.5px;
+  padding: 0 12px;
+}
+
+.logo-img {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  object-fit: cover;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.logo-img.collapsed {
+  width: 32px;
+  height: 32px;
 }
 
 .sidebar-version {

@@ -1,5 +1,6 @@
 <template>
   <div class="login-container">
+    <AuthThemeToggle />
     <!-- Background Orbs -->
     <div class="bg-orb orb-1"></div>
     <div class="bg-orb orb-2"></div>
@@ -33,8 +34,8 @@
       <!-- 2FA 验证表单 -->
       <n-form v-else ref="twoFAFormRef" :model="twoFAForm">
         <div style="text-align: center; margin-bottom: 24px;">
-          <p style="color: rgba(255, 255, 255, 0.7); margin-bottom: 8px;">请输入双因素验证码</p>
-          <p style="color: rgba(255, 255, 255, 0.5); font-size: 12px;">打开验证器 App 获取 6 位数字验证码</p>
+          <p class="twofa-text">请输入双因素验证码</p>
+          <p class="twofa-subtext">打开验证器 App 获取 6 位数字验证码</p>
         </div>
         <n-form-item label="验证码">
           <n-input
@@ -70,6 +71,7 @@ import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { useUserStore } from '../stores/user'
 import { getPublicSiteConfig, getRegistrationStatus, login2FA } from '../api'
+import AuthThemeToggle from '../components/AuthThemeToggle.vue'
 
 const router = useRouter()
 const message = useMessage()
@@ -210,7 +212,7 @@ const checkRegistrationStatus = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0a0e27;
+  background: var(--bg-primary);
   position: relative;
   overflow: hidden;
 }
@@ -218,7 +220,7 @@ const checkRegistrationStatus = async () => {
 .login-links {
   text-align: center;
   margin-top: 16px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-tertiary);
   font-size: 14px;
 }
 
@@ -291,12 +293,12 @@ const checkRegistrationStatus = async () => {
 .login-card {
   width: 400px;
   padding: 20px;
-  background: rgba(255, 255, 255, 0.05) !important;
+  background: var(--glass-bg) !important;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid var(--glass-border) !important;
   border-radius: 20px !important;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--glass-shadow);
   z-index: 10;
 }
 
@@ -323,7 +325,7 @@ const checkRegistrationStatus = async () => {
 }
 
 .login-subtitle {
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-tertiary);
   font-size: 14px;
   margin: 0;
 }
@@ -332,8 +334,8 @@ const checkRegistrationStatus = async () => {
   text-align: center;
   margin-top: 24px;
   padding-top: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.4);
+  border-top: 1px solid var(--glass-border);
+  color: var(--text-tertiary);
   font-size: 12px;
 }
 
@@ -354,7 +356,21 @@ const checkRegistrationStatus = async () => {
   box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
 }
 
+.twofa-text {
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.twofa-subtext {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
 :deep(.n-form-item-label) {
-  color: rgba(255, 255, 255, 0.7) !important;
+  color: var(--text-secondary) !important;
+}
+
+:global(html:not(.dark)) .login-container .bg-orb {
+  opacity: 0.2;
 }
 </style>

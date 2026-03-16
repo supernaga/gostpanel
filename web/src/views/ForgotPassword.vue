@@ -1,5 +1,6 @@
 <template>
   <div class="forgot-container">
+    <AuthThemeToggle />
     <!-- Background Orbs -->
     <div class="bg-orb orb-1"></div>
     <div class="bg-orb orb-2"></div>
@@ -41,6 +42,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { forgotPassword } from '../api'
+import AuthThemeToggle from '../components/AuthThemeToggle.vue'
 
 const router = useRouter()
 const message = useMessage()
@@ -74,7 +76,7 @@ const handleSubmit = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0a0e27;
+  background: var(--bg-primary);
   position: relative;
   overflow: hidden;
 }
@@ -128,11 +130,11 @@ const handleSubmit = async () => {
 .forgot-card {
   width: 400px;
   padding: 20px;
-  background: rgba(255, 255, 255, 0.05) !important;
+  background: var(--glass-bg) !important;
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid var(--glass-border) !important;
   border-radius: 20px !important;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--glass-shadow);
   z-index: 10;
 }
 
@@ -152,7 +154,7 @@ const handleSubmit = async () => {
 }
 
 .forgot-subtitle {
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-tertiary);
   font-size: 14px;
   margin: 0;
 }
@@ -194,7 +196,7 @@ const handleSubmit = async () => {
 }
 
 :deep(.n-form-item-label) {
-  color: rgba(255, 255, 255, 0.7) !important;
+  color: var(--text-secondary) !important;
 }
 
 :deep(.n-result) {
@@ -202,10 +204,14 @@ const handleSubmit = async () => {
 }
 
 :deep(.n-result-header__title) {
-  color: rgba(255, 255, 255, 0.9) !important;
+  color: var(--text-primary) !important;
 }
 
 :deep(.n-result-header__description) {
-  color: rgba(255, 255, 255, 0.6) !important;
+  color: var(--text-secondary) !important;
+}
+
+:global(html:not(.dark)) .forgot-container .bg-orb {
+  opacity: 0.2;
 }
 </style>
