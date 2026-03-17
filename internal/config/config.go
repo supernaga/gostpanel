@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -31,19 +32,37 @@ type Config struct {
 func Load() *Config {
 	jwtSecret := getEnv("JWT_SECRET", "")
 
-	// 如果未设置 JWT_SECRET，生成随机密钥并警告
+	// 如果未设置 JWT_SECRET，尝试从文件加载或生成并持久化
 	if jwtSecret == "" || jwtSecret == DefaultJWTSecret {
 		if jwtSecret == DefaultJWTSecret {
 			log.Println("WARNING: Using default JWT_SECRET is insecure! Please set JWT_SECRET environment variable.")
 		}
-		// 生成随机密钥 (256 bit)
-		randomBytes := make([]byte, 32)
-		if _, err := rand.Read(randomBytes); err != nil {
-			log.Fatal("FATAL: Failed to generate random JWT secret:", err)
+
+		// Try to load from persisted file
+		dbPath := getEnv("DB_PATH", "./data/panel.db")
+		secretFile := filepath.Join(filepath.Dir(dbPath), ".jwt_secret")
+		if data, err := os.ReadFile(secretFile); err == nil && len(data) >= 32 {
+			jwtSecret = strings.TrimSpace(string(data))
+			log.Println("Loaded JWT_SECRET from", secretFile)
+		} else {
+			// Generate and persist
+			randomBytes := make([]byte, 32)
+			if _, err := rand.Read(randomBytes); err != nil {
+				log.Fatal("FATAL: Failed to generate random JWT secret:", err)
+			}
+			jwtSecret = hex.EncodeToString(randomBytes)
+
+			// Save to file so it persists across restarts
+			if dir := filepath.Dir(secretFile); dir != "" {
+				os.MkdirAll(dir, 0700)
+			}
+			if err := os.WriteFile(secretFile, []byte(jwtSecret), 0600); err != nil {
+				log.Println("WARNING: Could not persist JWT_SECRET to file:", err)
+				log.Println("WARNING: Tokens will be invalidated on restart. Set JWT_SECRET env var for persistence.")
+			} else {
+				log.Println("Generated and saved JWT_SECRET to", secretFile)
+			}
 		}
-		jwtSecret = hex.EncodeToString(randomBytes)
-		log.Println("WARNING: Generated random JWT_SECRET for this session. Tokens will be invalidated on restart.")
-		log.Println("WARNING: Set JWT_SECRET environment variable for persistent tokens.")
 	}
 
 	// 解析允许的 CORS 来源

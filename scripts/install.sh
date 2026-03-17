@@ -14,6 +14,12 @@ INSTALL_DIR="${GOST_PANEL_INSTALL_DIR:-/opt/gost-panel}"
 SERVICE_NAME="gost-panel"
 ENV_FILE="/etc/sysconfig/${SERVICE_NAME}"
 
+# Minimum required versions for source build
+MIN_NODE_MAJOR=20
+MIN_GO_MAJOR=1
+MIN_GO_MINOR=23
+GO_INSTALL_VERSION="1.24.1"
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -60,32 +66,156 @@ detect_arch() {
   esac
 }
 
-install_build_deps() {
-  log_info "Installing build dependencies..."
+# ─── Version helpers ───
+
+# Parse major version from node: "v20.11.0" -> 20
+get_node_major() {
+  local ver
+  ver="$(node --version 2>/dev/null || echo "v0")"
+  echo "${ver}" | sed -E 's/^v([0-9]+).*/\1/'
+}
+
+# Parse Go version: "go1.24.1" -> "1 24"
+get_go_version() {
+  local ver
+  ver="$(go version 2>/dev/null | grep -oE 'go[0-9]+\.[0-9]+' | head -1 || echo "go0.0")"
+  echo "${ver}" | sed -E 's/go([0-9]+)\.([0-9]+)/\1 \2/'
+}
+
+# ─── Node.js ───
+
+ensure_node() {
+  local current_major
+  current_major="$(get_node_major)"
+
+  if [ "${current_major}" -ge "${MIN_NODE_MAJOR}" ]; then
+    log_info "Node.js $(node --version) meets requirement (>= v${MIN_NODE_MAJOR})"
+    return
+  fi
+
+  if [ "${current_major}" -gt 0 ]; then
+    log_warn "Node.js v${current_major} is too old (need >= v${MIN_NODE_MAJOR}), upgrading..."
+  else
+    log_info "Node.js not found, installing v${MIN_NODE_MAJOR}..."
+  fi
+
+  install_node
+}
+
+install_node() {
+  if command -v apt-get >/dev/null 2>&1; then
+    curl -fsSL "https://deb.nodesource.com/setup_${MIN_NODE_MAJOR}.x" | bash -
+    DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
+  elif command -v dnf >/dev/null 2>&1; then
+    curl -fsSL "https://rpm.nodesource.com/setup_${MIN_NODE_MAJOR}.x" | bash -
+    dnf install -y nodejs
+  elif command -v yum >/dev/null 2>&1; then
+    curl -fsSL "https://rpm.nodesource.com/setup_${MIN_NODE_MAJOR}.x" | bash -
+    yum install -y nodejs
+  elif command -v apk >/dev/null 2>&1; then
+    apk add --no-cache "nodejs>=20" npm
+  else
+    log_err "Cannot auto-install Node.js – unsupported package manager."
+    log_err "Please install Node.js >= ${MIN_NODE_MAJOR} manually."
+    exit 1
+  fi
+
+  log_info "Node.js $(node --version) installed"
+}
+
+# ─── Go ───
+
+ensure_go() {
+  local parts major minor
+  read -r major minor <<< "$(get_go_version)"
+
+  if [ "${major}" -gt "${MIN_GO_MAJOR}" ] || { [ "${major}" -eq "${MIN_GO_MAJOR}" ] && [ "${minor}" -ge "${MIN_GO_MINOR}" ]; }; then
+    log_info "Go $(go version 2>/dev/null | grep -oE 'go[0-9]+\.[0-9]+\.[0-9]+') meets requirement (>= ${MIN_GO_MAJOR}.${MIN_GO_MINOR})"
+    return
+  fi
+
+  if [ "${major}" -gt 0 ]; then
+    log_warn "Go ${major}.${minor} is too old (need >= ${MIN_GO_MAJOR}.${MIN_GO_MINOR}), upgrading..."
+  else
+    log_info "Go not found, installing ${GO_INSTALL_VERSION}..."
+  fi
+
+  install_go
+}
+
+install_go() {
+  local goarch="${ARCH}"
+  # Go uses "amd64" and "arm64" which match our ARCH
+  local tarball="go${GO_INSTALL_VERSION}.linux-${goarch}.tar.gz"
+  local url="https://go.dev/dl/${tarball}"
+
+  rm -rf /usr/local/go
+  curl -fsSL "${url}" | tar -C /usr/local -xz
+  export PATH="/usr/local/go/bin:${PATH}"
+
+  # Persist PATH for current session and future shells
+  if ! grep -q '/usr/local/go/bin' /etc/profile 2>/dev/null; then
+    echo 'export PATH=/usr/local/go/bin:$PATH' >> /etc/profile
+  fi
+
+  log_info "Go $(go version | grep -oE 'go[0-9]+\.[0-9]+\.[0-9]+') installed"
+}
+
+# ─── Swap ───
+
+ensure_swap() {
+  local mem_mb
+  mem_mb=$(awk '/MemTotal/ {printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo "99999")
+  local swap_mb
+  swap_mb=$(awk '/SwapTotal/ {printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo "99999")
+  local total=$((mem_mb + swap_mb))
+
+  if [ "${total}" -ge 1536 ]; then
+    return
+  fi
+
+  log_warn "Low memory detected (${mem_mb}MB RAM + ${swap_mb}MB swap). Adding swap for build..."
+
+  if [ -f /swapfile ]; then
+    log_info "Swap file already exists, skipping"
+    return
+  fi
+
+  fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048 status=none
+  chmod 600 /swapfile
+  mkswap /swapfile >/dev/null
+  swapon /swapfile
+  log_info "Added 2GB swap"
+}
+
+# ─── Build deps (basic: curl, tar, git, build-essential) ───
+
+install_base_deps() {
+  log_info "Installing base build dependencies..."
 
   if command -v apt-get >/dev/null 2>&1; then
     export DEBIAN_FRONTEND=noninteractive
-    apt-get update
-    apt-get install -y ca-certificates curl tar git build-essential pkg-config nodejs npm golang-go
+    apt-get update -qq
+    apt-get install -y -qq ca-certificates curl tar git build-essential pkg-config >/dev/null
     return
   fi
 
   if command -v dnf >/dev/null 2>&1; then
-    dnf install -y ca-certificates curl tar git gcc gcc-c++ make nodejs npm golang
+    dnf install -y -q ca-certificates curl tar git gcc gcc-c++ make
     return
   fi
 
   if command -v yum >/dev/null 2>&1; then
-    yum install -y ca-certificates curl tar git gcc gcc-c++ make nodejs npm golang
+    yum install -y -q ca-certificates curl tar git gcc gcc-c++ make
     return
   fi
 
   if command -v apk >/dev/null 2>&1; then
-    apk add --no-cache bash ca-certificates curl tar git build-base nodejs npm go
+    apk add --no-cache bash ca-certificates curl tar git build-base
     return
   fi
 
-  log_err "Unsupported package manager. Please install Node.js, npm and Go manually."
+  log_err "Unsupported package manager."
   exit 1
 }
 
@@ -129,7 +259,10 @@ download_release_binary() {
 build_from_source() {
   log_warn "Falling back to source build (this may take 5-10 minutes)"
   check_disk_space
-  install_build_deps
+  install_base_deps
+  ensure_swap
+  ensure_node
+  ensure_go
 
   local ref_path
   local src_url
@@ -158,13 +291,14 @@ build_from_source() {
     else
       npm install --quiet
     fi
-    NODE_OPTIONS="--max-old-space-size=1024" npm run build
+    NODE_OPTIONS="--max-old-space-size=1536" npm run build
   )
 
   log_info "Building panel binary..."
   (
     cd "${src_dir}"
-    GOMAXPROCS=1 go build -ldflags="-s -w" -o "${INSTALL_DIR}/gost-panel" ./cmd/panel
+    export PATH="/usr/local/go/bin:${PATH}"
+    GOMAXPROCS=1 CGO_ENABLED=1 go build -ldflags="-s -w" -o "${INSTALL_DIR}/gost-panel" ./cmd/panel
   )
 
   chmod +x "${INSTALL_DIR}/gost-panel"
@@ -214,11 +348,11 @@ print_summary() {
   echo -e "${GREEN}  GOST Panel Installation Complete!${NC}"
   echo -e "${GREEN}========================================${NC}"
   echo ""
-  echo -e "📍 Panel URL: ${GREEN}http://${ip}:8080${NC}"
-  echo -e "🔧 Service: ${SERVICE_NAME}"
-  echo -e "⚙️  Config: ${ENV_FILE}"
+  echo -e "Panel URL: ${GREEN}http://${ip}:8080${NC}"
+  echo -e "Service: ${SERVICE_NAME}"
+  echo -e "Config: ${ENV_FILE}"
   echo ""
-  echo -e "${YELLOW}📝 Default Login:${NC}"
+  echo -e "${YELLOW}Default Login:${NC}"
   echo -e "   Username: ${GREEN}admin${NC}"
   if [ -n "${INITIAL_ADMIN_PASSWORD:-}" ]; then
     echo -e "   Password: ${GREEN}${INITIAL_ADMIN_PASSWORD}${NC}"
@@ -227,12 +361,12 @@ print_summary() {
     echo -e "   ${GREEN}journalctl -u ${SERVICE_NAME} -n 80 --no-pager | grep -i password${NC}"
   fi
   echo ""
-  echo -e "${YELLOW}🔍 Service Commands:${NC}"
+  echo -e "${YELLOW}Service Commands:${NC}"
   echo "   systemctl status ${SERVICE_NAME}"
   echo "   systemctl restart ${SERVICE_NAME}"
   echo "   journalctl -u ${SERVICE_NAME} -f"
   echo ""
-  echo -e "${YELLOW}🔄 Upgrade:${NC}"
+  echo -e "${YELLOW}Upgrade:${NC}"
   echo "   curl -fsSL https://raw.githubusercontent.com/${REPO}/${BRANCH}/scripts/install.sh | bash"
   echo ""
 }

@@ -371,6 +371,10 @@ const checkRegistrationStatus = async () => {
 }
 
 :global(html:not(.dark)) .login-container .bg-orb {
-  opacity: 0.2;
+  opacity: 0.15;
+}
+
+:global(html:not(.dark)) .login-container {
+  background: #e5e3de;
 }
 </style>

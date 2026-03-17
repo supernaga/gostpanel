@@ -52,23 +52,23 @@
 
 html:not(.dark) {
   color-scheme: light;
-  --bg-primary: #f8f6f1;
-  --bg-secondary: #ffffff;
-  --bg-tertiary: #f1efe9;
+  --bg-primary: #eae8e3;
+  --bg-secondary: #f2f0eb;
+  --bg-tertiary: #e2dfda;
 
-  --glass-bg: rgba(255, 255, 255, 0.85);
-  --glass-border: rgba(15, 23, 42, 0.08);
-  --glass-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-border: rgba(15, 23, 42, 0.1);
+  --glass-shadow: 0 18px 40px rgba(15, 23, 42, 0.1);
 
-  --text-primary: #1f2937;
-  --text-secondary: rgba(31, 41, 55, 0.7);
-  --text-tertiary: rgba(31, 41, 55, 0.55);
+  --text-primary: #1a1a2e;
+  --text-secondary: rgba(26, 26, 46, 0.72);
+  --text-tertiary: rgba(26, 26, 46, 0.5);
 
   --gradient-card: linear-gradient(135deg, rgba(15, 23, 42, 0.06) 0%, rgba(15, 23, 42, 0.02) 100%);
 
-  --glow-primary: 0 0 16px rgba(59, 130, 246, 0.2);
-  --glow-success: 0 0 16px rgba(34, 197, 94, 0.2);
-  --glow-danger: 0 0 16px rgba(239, 68, 68, 0.2);
+  --glow-primary: 0 0 16px rgba(59, 130, 246, 0.15);
+  --glow-success: 0 0 16px rgba(34, 197, 94, 0.15);
+  --glow-danger: 0 0 16px rgba(239, 68, 68, 0.15);
 }
 
 body {
@@ -141,6 +141,43 @@ body {
 /* Dark mode is now default */
 .dark {
   color-scheme: dark;
+}
+
+/* Light mode component overrides */
+html:not(.dark) .n-card:hover {
+  border-color: rgba(15, 23, 42, 0.15) !important;
+}
+
+html:not(.dark) .glass-card:hover {
+  border-color: rgba(15, 23, 42, 0.15);
+}
+
+html:not(.dark) ::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+html:not(.dark) ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+html:not(.dark) ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+html:not(.dark) .n-data-table .n-data-table-thead {
+  background: rgba(0, 0, 0, 0.03) !important;
+}
+
+html:not(.dark) .n-data-table .n-data-table-tr:hover {
+  background: rgba(0, 0, 0, 0.04) !important;
+}
+
+html:not(.dark) .n-menu-item-content:hover {
+  background: rgba(0, 0, 0, 0.06) !important;
+}
+
+html:not(.dark) .n-menu-item-content--selected {
+  background: rgba(59, 130, 246, 0.1) !important;
 }
 
 /* Override for Naive UI Components in Dark Mode */

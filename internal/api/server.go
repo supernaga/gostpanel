@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -61,20 +60,28 @@ func NewServer(svc *service.Service, cfg *config.Config) *Server {
 
 	if len(cfg.AllowedOrigins) > 0 {
 		corsConfig.AllowOrigins = cfg.AllowedOrigins
-	} else if cfg.Debug {
-		// 调试模式：允许 localhost 开发环境跨域
+	} else {
+		// Auto-allow same-origin requests based on listen address,
+		// plus localhost for development.
+		listenPort := strings.TrimPrefix(cfg.ListenAddr, ":")
+		if listenPort == "" || listenPort == cfg.ListenAddr {
+			// ListenAddr is "host:port" or just ":port"
+			parts := strings.Split(cfg.ListenAddr, ":")
+			listenPort = parts[len(parts)-1]
+		}
+		if listenPort == "" {
+			listenPort = "8080"
+		}
 		corsConfig.AllowOriginFunc = func(origin string) bool {
-			return strings.HasPrefix(origin, "http://localhost") ||
+			// Always allow localhost / 127.0.0.1
+			if strings.HasPrefix(origin, "http://localhost") ||
 				strings.HasPrefix(origin, "http://127.0.0.1") ||
 				strings.HasPrefix(origin, "https://localhost") ||
-				strings.HasPrefix(origin, "https://127.0.0.1")
-		}
-	} else {
-		// 生产环境：未配置 ALLOWED_ORIGINS 时拒绝所有跨域请求
-		log.Println("WARNING: No ALLOWED_ORIGINS configured. Cross-origin requests will be rejected.")
-		corsConfig.AllowOriginFunc = func(origin string) bool {
-			// 生产环境未配置允许源，拒绝跨域请求
-			return false
+				strings.HasPrefix(origin, "https://127.0.0.1") {
+				return true
+			}
+			// Allow any origin that targets the same port (same-origin from any IP)
+			return strings.HasSuffix(origin, ":"+listenPort)
 		}
 	}
 
